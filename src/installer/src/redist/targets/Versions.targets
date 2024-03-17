@@ -8,10 +8,15 @@
   </Target>
 
   <Target Name="GetCommitHash">
-    <Exec Command="git rev-parse HEAD"
-          ConsoleToMSBuild="true"
-          Condition=" '$(GitCommitHash)' == '' ">
-      <Output TaskParameter="ConsoleOutput" PropertyName="GitCommitHash" />
-    </Exec>
+    <Message Text="XXX SourceRoot Count:   @(SourceRoot->Count())" />
+    <Message Text="XXX SourceRoot WithMetadataValue: @(SourceRoot->WithMetadataValue('SourceControl', 'git'))" />
+
+    <ItemGroup>
+      <SourceRootOfTypeGit Include="@(SourceRoot)" Condition="'%(SourceRoot.SourceControl)' == 'git'" />
+    </ItemGroup>
+
+    <PropertyGroup>
+      <GitCommitHash>%(SourceRootOfTypeGit.RevisionId)</GitCommitHash>
+    </PropertyGroup>
   </Target>
 </Project>
