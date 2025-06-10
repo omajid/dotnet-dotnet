@@ -4946,7 +4946,7 @@ namespace ClassLibrary
             }
         }
 
-        [PlatformFact(Platform.Windows, Skip = "https://github.com/NuGet/Home/issues/8601")]
+        [PlatformFact(Platform.Windows)]
         public void PackCommand_Deterministic_MultiplePackInvocations_CreateIdenticalPackages()
         {
             using (var testDirectory = _dotnetFixture.CreateTestDirectory())

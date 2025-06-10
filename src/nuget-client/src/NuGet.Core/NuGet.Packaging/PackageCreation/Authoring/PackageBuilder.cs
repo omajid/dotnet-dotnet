@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -27,12 +28,19 @@ namespace NuGet.Packaging
     public class PackageBuilder : IPackageMetadata
     {
         private static readonly Uri DefaultUri = new Uri("http://defaultcontainer/");
-        private static readonly DateTime ZipFormatMinDate = new DateTime(1980, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        // The acutal minimum date is January 1, 1980. However, there's no
+        // timezone information stored in zip entries. That can lead to
+        // situations where January 1 local (in the zip file) converts to a UTC
+        // min date that's before 1980, breaking all sorts of things. Add a
+        // margin of 1 day for to avoid this.
+        private static readonly DateTime ZipFormatMinDate = new DateTime(1980, 1, 2, 0, 0, 0, DateTimeKind.Utc);
         private static readonly DateTime ZipFormatMaxDate = new DateTime(2107, 12, 31, 23, 59, 58, DateTimeKind.Utc);
         internal const string ManifestRelationType = "manifest";
+        private readonly IEnvironmentVariableReader _environmentVariableProvider;
         private readonly bool _includeEmptyDirectories;
         private readonly bool _deterministic;
         private readonly ILogger _logger;
+        private readonly DateTime _deterministicDate;
 
         /// <summary>
         /// Maximum Icon file size: 1 megabyte
@@ -66,7 +74,7 @@ namespace NuGet.Packaging
         }
 
         public PackageBuilder(string path, string basePath, Func<string, string> propertyProvider, bool includeEmptyDirectories, bool deterministic)
-            : this(includeEmptyDirectories, deterministic)
+            : this(EnvironmentVariableWrapper.Instance, includeEmptyDirectories, deterministic)
         {
             if (!File.Exists(path))
             {
@@ -93,30 +101,32 @@ namespace NuGet.Packaging
         }
 
         public PackageBuilder(bool deterministic) :
-            this(includeEmptyDirectories: false, deterministic: deterministic)
+            this(EnvironmentVariableWrapper.Instance, includeEmptyDirectories: false, deterministic: deterministic)
         {
 
         }
 
         public PackageBuilder()
-            : this(includeEmptyDirectories: false, deterministic: false)
+            : this(EnvironmentVariableWrapper.Instance, includeEmptyDirectories: false, deterministic: false)
         {
         }
 
         public PackageBuilder(bool deterministic, ILogger logger)
-            : this(includeEmptyDirectories: false, deterministic: deterministic, logger)
+            : this(EnvironmentVariableWrapper.Instance, includeEmptyDirectories: false, deterministic: deterministic, logger)
         {
         }
 
-        private PackageBuilder(bool includeEmptyDirectories, bool deterministic)
-            : this(includeEmptyDirectories: false, deterministic: deterministic, logger: NullLogger.Instance)
+        private PackageBuilder(IEnvironmentVariableReader environmentVariableProvider, bool includeEmptyDirectories, bool deterministic)
+            : this(environmentVariableProvider, includeEmptyDirectories: false, deterministic: deterministic, logger: NullLogger.Instance)
         {
         }
 
-        private PackageBuilder(bool includeEmptyDirectories, bool deterministic, ILogger logger)
+        private PackageBuilder(IEnvironmentVariableReader environmentVariableProvider, bool includeEmptyDirectories, bool deterministic, ILogger logger)
         {
+            _environmentVariableProvider = environmentVariableProvider;
             _includeEmptyDirectories = includeEmptyDirectories;
-            _deterministic = false; // fix in https://github.com/NuGet/Home/issues/8601
+            _deterministic = deterministic;
+            _deterministicDate = ComputeDeterministicDate();
             _logger = logger;
             Files = new Collection<IPackageFile>();
             DependencyGroups = new Collection<PackageDependencyGroup>();
@@ -131,6 +141,20 @@ namespace NuGet.Packaging
             TargetFrameworks = new List<NuGetFramework>();
             // Just like parameter replacements, these are also case insensitive, for consistency.
             Properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private DateTime ComputeDeterministicDate()
+        {
+            string sourceBuildEpoch = _environmentVariableProvider.GetEnvironmentVariable("SOURCE_DATE_EPOCH");
+            if (sourceBuildEpoch != null &&
+                long.TryParse(sourceBuildEpoch, NumberStyles.None, CultureInfo.InvariantCulture, out long unixTimeSeconds))
+            {
+                return DateTimeOffset.FromUnixTimeSeconds(unixTimeSeconds).UtcDateTime;
+            }
+            else
+            {
+                return ZipFormatMinDate;
+            }
         }
 
         public string Id
@@ -448,6 +472,14 @@ namespace NuGet.Packaging
 
         private string CalcPsmdcpName()
         {
+            if (_deterministic)
+            {
+                _logger?.LogMinimal($"XXX YYY TODO {Id} is deterministic: {_deterministic}");
+            }
+            else
+            {
+                _logger?.LogWarning($"XXX YYY TODO {Id} is deterministic: {_deterministic}");
+            }
             if (_deterministic)
             {
                 using (var hashFunc = new Sha512HashFunction())
@@ -1003,7 +1035,7 @@ namespace NuGet.Packaging
             var entry = package.CreateEntry(entryName, compressionLevel);
             if (_deterministic)
             {
-                entry.LastWriteTime = ZipFormatMinDate;
+                entry.LastWriteTime = _deterministicDate;
             }
             return entry;
         }
@@ -1061,7 +1093,7 @@ namespace NuGet.Packaging
                             package,
                             file.Path,
                             stream,
-                            lastWriteTime: _deterministic ? ZipFormatMinDate : file.LastWriteTime,
+                            lastWriteTime: _deterministic ? _deterministicDate : file.LastWriteTime,
                             warningMessage);
                         var fileExtension = Path.GetExtension(file.Path);
 
@@ -1309,7 +1341,7 @@ namespace NuGet.Packaging
                     new XAttribute("Extension", "psmdcp"),
                     new XAttribute("ContentType", "application/vnd.openxmlformats-package.core-properties+xml"))
                     );
-            foreach (var extension in extensions)
+            foreach (var extension in extensions.ToImmutableSortedSet())
             {
                 element.Add(
                     new XElement(content + "Default",
@@ -1318,7 +1350,7 @@ namespace NuGet.Packaging
                         )
                     );
             }
-            foreach (var file in filesWithoutExtensions)
+            foreach (var file in filesWithoutExtensions.ToImmutableSortedSet())
             {
                 element.Add(
                     new XElement(content + "Override",
