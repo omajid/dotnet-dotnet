@@ -30,6 +30,7 @@ namespace NuGet.Build.Tasks.Pack
         {
             var packArgs = new PackArgs
             {
+
                 InstallPackageToOutputPath = request.InstallPackageToOutputPath,
                 OutputFileNamesWithoutVersion = request.OutputFileNamesWithoutVersion,
                 OutputDirectory = request.PackageOutputPath,
@@ -40,6 +41,7 @@ namespace NuGet.Build.Tasks.Pack
                 BasePath = request.NuspecBasePath,
                 NoPackageAnalysis = request.NoPackageAnalysis,
                 NoDefaultExcludes = request.NoDefaultExcludes,
+                Deterministic = request.Deterministic,
                 WarningProperties = WarningProperties.GetWarningProperties(request.TreatWarningsAsErrors, request.WarningsAsErrors, request.NoWarn, request.WarningsNotAsErrors),
                 PackTargetArgs = new MSBuildPackTargetArgs()
             };
@@ -118,6 +120,8 @@ namespace NuGet.Build.Tasks.Pack
                     Strings.AssetsFileNotFound,
                     assetsFilePath));
             }
+
+            request.Logger.LogMinimal($"XXX YYY TODO {request.PackageId}/{request.PackageVersion} PackTaskLogic.GetPackageBuilder: {request.Deterministic}");
 
             var builder = new PackageBuilder(request.Deterministic, request.Logger)
             {

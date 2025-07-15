@@ -128,6 +128,8 @@ namespace NuGet.Build.Tasks.Pack
                 }
 #endif
 
+                Logger.LogMinimal($"XXX YYY TODO {PackageId}/{PackageVersion} is supposed to be deterministic: {Deterministic}");
+
                 var request = GetRequest();
                 var logic = PackTaskLogic;
                 PackageBuilder packageBuilder = null;
@@ -141,6 +143,10 @@ namespace NuGet.Build.Tasks.Pack
                 }
 
                 PackArgs packArgs = logic.GetPackArgs(request);
+
+                Logger.LogMinimal($"XXX YYY TODO {PackageId}/{PackageVersion}: Request.Deterministic: {request.Deterministic}");
+                Logger.LogMinimal($"XXX YYY TODO {PackageId}/{PackageVersion}: PackArgs.Deterministic: {packArgs.Deterministic}");
+
                 var packRunner = logic.GetPackCommandRunner(request, packArgs, packageBuilder);
 
                 return logic.BuildPackage(packRunner);
