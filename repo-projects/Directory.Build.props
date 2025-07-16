@@ -173,6 +173,9 @@
     <EnvironmentVariables Include="_InitializeToolset=$(SourceBuiltSdksDir)Microsoft.DotNet.Arcade.Sdk/tools/Build.proj"
                           Condition="'$(UseBootstrapArcade)' != 'true'" />
 
+    <EnvironmentVariables Include="Deterministic=true" Condition="'$(DeterministicBuildOptOut)' != 'true'" />
+    <EnvironmentVariables Include="Deterministic=false" Condition="'$(DeterministicBuildOptOut)' == 'true'" />
+
     <EnvironmentVariables Include="DeterministicSourcePaths=true" Condition="'$(DeterministicBuildOptOut)' != 'true'" />
     <EnvironmentVariables Include="DeterministicSourcePaths=false" Condition="'$(DeterministicBuildOptOut)' == 'true'" />
 
