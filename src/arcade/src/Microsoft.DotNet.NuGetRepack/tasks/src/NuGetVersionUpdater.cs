@@ -8,6 +8,7 @@ using System.IO.Packaging;
 using System.Linq;
 using System.Xml.Linq;
 using NuGet.Versioning;
+using Microsoft.Build.Utilities;
 
 namespace Microsoft.DotNet.Tools
 {
@@ -32,6 +33,8 @@ namespace Microsoft.DotNet.Tools
             public XDocument SpecificationXml { get; }
             public string NuspecXmlns { get; }
 
+            public DeterministicUtils.DeterministicState DeterministicState { get; }
+
             public PackageInfo(
                 Package package,
                 string id,
@@ -40,7 +43,8 @@ namespace Microsoft.DotNet.Tools
                 string tempPathOpt,
                 Stream specificationStream,
                 XDocument specificationXml,
-                string nuspecXmlns)
+                string nuspecXmlns,
+                DeterministicUtils.DeterministicState deterministicState)
             {
                 SpecificationStream = specificationStream;
                 SpecificationXml = specificationXml;
@@ -50,10 +54,13 @@ namespace Microsoft.DotNet.Tools
                 OldVersion = oldVersion;
                 NewVersion = newVersion;
                 NuspecXmlns = nuspecXmlns;
+                DeterministicState = deterministicState;
             }
         }
 
         public static void Run(
+            TaskLoggingHelper log,
+            bool deterministic,
             IEnumerable<string> packagePaths,
             string outDirectoryOpt,
             VersionTranslation translation,
@@ -74,12 +81,12 @@ namespace Microsoft.DotNet.Tools
             var packages = new Dictionary<string, PackageInfo>();
             try
             {
-                LoadPackages(packagePaths, packages, tempDirectoryOpt, translation);
+                LoadPackages(log, deterministic, packagePaths, packages, tempDirectoryOpt, translation);
                 UpdateDependencies(packages, translation, exactVersions, allowPreReleaseDependency);
 
                 if (outDirectoryOpt != null)
                 {
-                    SavePackages(packages, outDirectoryOpt);
+                    SavePackages(log, deterministic, packages, outDirectoryOpt);
                 }
             }
             finally
@@ -97,7 +104,7 @@ namespace Microsoft.DotNet.Tools
             }
         }
 
-        private static void LoadPackages(IEnumerable<string> packagePaths, Dictionary<string, PackageInfo> packages, string tempDirectoryOpt, VersionTranslation translation)
+        private static void LoadPackages(TaskLoggingHelper log, bool deterministic, IEnumerable<string> packagePaths, Dictionary<string, PackageInfo> packages, string tempDirectoryOpt, VersionTranslation translation)
         {
             bool readOnly = tempDirectoryOpt == null;
 
@@ -128,6 +135,14 @@ namespace Microsoft.DotNet.Tools
                     SemanticVersion packageVersion = null;
                     SemanticVersion newPackageVersion = null;
                     string nuspecXmlns = NuGetUtils.DefaultNuspecXmlns;
+
+                    DeterministicUtils.DeterministicState deterministicState = null;
+
+                    if (deterministic)
+                    {
+                        ArgumentNullException.ThrowIfNull(packagePath);
+                        deterministicState = DeterministicUtils.GetDeterministicState(log, packagePath);
+                    }
 
                     foreach (var part in package.GetParts())
                     {
@@ -241,7 +256,7 @@ namespace Microsoft.DotNet.Tools
                         package.PackageProperties.Version = newPackageVersion.ToFullString();
                     }
 
-                    packageInfo = new PackageInfo(package, packageId, packageVersion, newPackageVersion, tempPathOpt, nuspecStream, nuspecXml, nuspecXmlns);
+                    packageInfo = new PackageInfo(package, packageId, packageVersion, newPackageVersion, tempPathOpt, nuspecStream, nuspecXml, nuspecXmlns, deterministicState);
                 }
                 finally
                 {
@@ -355,7 +370,7 @@ namespace Microsoft.DotNet.Tools
             ThrowExceptions(errors);
         }
 
-        private static void SavePackages(Dictionary<string, PackageInfo> packages, string outDirectory)
+        private static void SavePackages(TaskLoggingHelper log, bool deterministic, Dictionary<string, PackageInfo> packages, string outDirectory)
         {
             Directory.CreateDirectory(outDirectory);
 
@@ -368,6 +383,11 @@ namespace Microsoft.DotNet.Tools
                 package.Package.Close();
 
                 string finalPath = Path.Combine(outDirectory, package.Id + "." + package.NewVersion + ".nupkg");
+
+                if (deterministic)
+                {
+                    DeterministicUtils.ReinstateDeterministicState(log, package.TempPathOpt, package.DeterministicState, new string[0]);
+                }
 
                 try
                 {

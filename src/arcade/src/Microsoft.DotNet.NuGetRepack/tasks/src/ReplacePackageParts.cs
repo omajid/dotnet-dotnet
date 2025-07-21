@@ -60,6 +60,11 @@ namespace Microsoft.DotNet.Tools
         public string[] ReplacementFiles { get; set; }
 
         /// <summary>
+        /// Whether the package is being built in Deterministic mode
+        /// </summary>
+        public bool Deterministic { get; set; }
+
+        /// <summary>
         /// Full path the the processed package.
         /// </summary>
         [Output]
@@ -124,6 +129,13 @@ namespace Microsoft.DotNet.Tools
             try
             {
                 File.Copy(SourcePackage, tempPackagePath);
+
+                DeterministicUtils.DeterministicState deterministicState = null;
+
+                if (Deterministic)
+                {
+                    deterministicState = DeterministicUtils.GetDeterministicState(Log, tempPackagePath);
+                }
 
                 using (var package = Package.Open(tempPackagePath, FileMode.Open, FileAccess.ReadWrite))
                 {
@@ -226,6 +238,11 @@ namespace Microsoft.DotNet.Tools
                     {
                         Log.LogWarning($"File '{partName}' not found in package '{SourcePackage}'");
                     }
+                }
+
+                if (Deterministic)
+                {
+                    DeterministicUtils.ReinstateDeterministicState(Log, tempPackagePath, deterministicState, ReplacementFiles);
                 }
 
                 // remove signature if present (the signature part is not accessible thru Package API):

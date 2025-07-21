@@ -287,6 +287,7 @@
                                                 NewVersionSuffix="$(_OptimizedNuGetPackageVersionSuffix)"
                                                 Parts="%(_PackageToRepack.Parts)"
                                                 ReplacementFiles="%(_PackageToRepack.ReplacementFiles)"
+                                                Deterministic="$(Deterministic)"
                                                 Condition="'@(_PackageToRepack)' != ''">
       <Output TaskParameter="NewPackage" ItemName="FileWrites" />
     </Microsoft.DotNet.Tools.ReplacePackageParts>

@@ -31,6 +31,8 @@ namespace Microsoft.DotNet.Tools
 
         public bool AllowPreReleaseDependencies { get; set; }
 
+        public bool Deterministic { get; set; }
+
         public override bool Execute()
         {
 #if NET472
@@ -74,7 +76,7 @@ namespace Microsoft.DotNet.Tools
 
             try
             {
-                NuGetVersionUpdater.Run(Packages, OutputDirectory, translation, ExactVersions, allowPreReleaseDependency: (packageId, dependencyId, dependencyVersion) =>
+                NuGetVersionUpdater.Run(Log, Deterministic, Packages, OutputDirectory, translation, ExactVersions, allowPreReleaseDependency: (packageId, dependencyId, dependencyVersion) =>
                 {
                     if (AllowPreReleaseDependencies)
                     {

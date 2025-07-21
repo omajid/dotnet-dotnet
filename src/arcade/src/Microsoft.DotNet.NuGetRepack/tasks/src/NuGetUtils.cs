@@ -20,7 +20,7 @@ namespace Microsoft.DotNet.Tools
         public static bool IsNuSpec(string partName)
         {
             ParseName(partName, out var fileName, out var dirName);
-            return dirName == "/" && fileName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase);
+            return (dirName == "/" || dirName == "") && fileName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase);
         }
     }
 }
