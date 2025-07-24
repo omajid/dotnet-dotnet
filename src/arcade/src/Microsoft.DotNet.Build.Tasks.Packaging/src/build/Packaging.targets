@@ -1282,6 +1282,7 @@
                AdditionalLibPackageExcludes="@(AdditionalLibPackageExcludes)"
                AdditionalSymbolPackageExcludes="@(AdditionalSymbolPackageExcludes)"
                PackedPackageNamePrefix="$(PackedPackageNamePrefix)"
+               Deterministic="$(Deterministic)"
                Condition="'$(_SkipCreatePackage)' != 'true'"/>
 
     <!-- Create a marker that records the path to the generated package -->
