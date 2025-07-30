@@ -484,7 +484,7 @@ namespace NuGet.Packaging
             {
                 using (var hashFunc = new Sha512HashFunction())
                 {
-                    foreach (var file in Files)
+                    foreach (var file in Files.OrderBy(f => f.Path, StringComparer.Ordinal))
                     {
                         var data = ReadAllBytes(file.GetStream());
                         hashFunc.Update(data, 0, data.Length);
