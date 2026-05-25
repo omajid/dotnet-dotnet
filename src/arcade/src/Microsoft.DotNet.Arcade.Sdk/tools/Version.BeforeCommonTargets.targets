@@ -44,6 +44,8 @@
       and should only be enabled when it's necessary to test-install the MSIs produced by the build.
     -->
     <_BuildNumber>$(OfficialBuildId)</_BuildNumber>
+    <!-- TODO: DeterministicTimestamp -->
+    <_BuildNumber Condition="'$(_BuildNumber)' == '' and '$(SOURCE_DATE_EPOCH)' != ''">$([System.DateTimeOffset]::FromUnixTimeSeconds($(SOURCE_DATE_EPOCH)).LocalDateTime.ToString(yyMMdd)).1</_BuildNumber>
     <_BuildNumber Condition="'$(OfficialBuildId)' == ''">$([System.DateTime]::Now.ToString(yyyyMMdd)).1</_BuildNumber>
 
     <!--
